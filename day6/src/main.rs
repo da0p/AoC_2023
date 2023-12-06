@@ -51,13 +51,7 @@ fn calc_part_1(contents: &str) -> u64 {
     let mut products = vec![];
 
     for race in races.iter() {
-        let mut breaking_records: u64 = 0;
-        for velocity in 0..race.time {
-            if velocity * (race.time - velocity) > race.distance {
-                breaking_records += 1;
-            }
-        }
-        products.push(breaking_records);
+        products.push(race.time + 1 - 2 * calc_loses(race));
     }
 
     products.iter().fold(1, |first, second| first * second)
@@ -89,14 +83,7 @@ fn parse_line_part_1(line: &str) -> Vec<u64> {
 fn calc_part_2(contents: &str) -> u64 {
     let race = parse_input_part_2(&contents);
 
-    let mut loses: u64 = 0;
-    for velocity in 0..race.time / 2 + 1 {
-        if velocity * (race.time - velocity) <= race.distance {
-            loses += 1;
-        }
-    }
-
-    race.time + 1 - loses * 2
+    race.time + 1 - calc_loses(&race) * 2
 }
 
 fn parse_input_part_2(contents: &str) -> Race {
@@ -116,4 +103,10 @@ fn parse_line_part_2(line: &str) -> u64 {
         .collect::<String>()
         .parse::<u64>()
         .unwrap()
+}
+
+fn calc_loses(race: &Race) -> u64 {
+    (0..race.time / 2 + 1)
+        .filter(|velocity| velocity * (race.time - velocity) <= race.distance)
+        .count() as u64
 }
