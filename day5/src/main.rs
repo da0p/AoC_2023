@@ -1,7 +1,23 @@
+use std::collections::HashSet;
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::process;
+
+#[derive(Debug, Clone, Copy)]
+struct Range {
+    begin: u64,
+    end: u64,
+}
+
+struct Line {
+    destination: u64,
+    range: Range,
+}
+
+struct Map {
+    lines: Vec<Line>,
+}
 
 fn main() {
     let digits = read_input(env::args()).unwrap_or_else(|err| {
@@ -39,11 +55,11 @@ fn run(file_path: &str) -> Result<(u64, u64), Box<dyn Error>> {
 }
 
 fn calc_part_1(contents: &str) -> u64 {
-    let seeds = parse_seeds_part_1(&contents);
-    let mut maps = vec![];
-    for i in 1..8 {
-        maps.push(parse_map(&contents, i));
-    }
+    let seeds = parse_input(&contents);
+
+    let maps = (1..8)
+        .map(|i| parse_lines(&contents, i))
+        .collect::<Vec<_>>();
 
     seeds
         .iter()
@@ -59,7 +75,108 @@ fn calc_part_1(contents: &str) -> u64 {
         .unwrap()
 }
 
-fn parse_seeds_part_1(contents: &str) -> Vec<u64> {
+fn jump_forward(key: u64, map: &Vec<Line>) -> u64 {
+    for entry in map {
+        if key >= entry.range.begin && key < entry.range.end {
+            return entry.destination + key - entry.range.begin;
+        }
+    }
+    key
+}
+
+fn calc_part_2(contents: &str) -> u64 {
+    let seeds = parse_seeds_part_2(&contents);
+    let maps = (1..8)
+        .map(|i| {
+            let mut lines = parse_lines(&contents, i);
+            lines.sort_by(|first, second| first.range.begin.cmp(&second.range.begin));
+            Map { lines }
+        })
+        .collect::<Vec<_>>();
+
+    let min_location = seeds
+        .iter()
+        .map(|seed| {
+            let mut ranges = vec![*seed];
+            for map in maps.iter() {
+                let mut sub_ranges = vec![];
+                for range in ranges.iter() {
+                    sub_ranges.push(map_range(range, map));
+                }
+                ranges = sub_ranges.into_iter().flatten().collect::<Vec<Range>>();
+            }
+            ranges
+        })
+        .flatten()
+        .min_by(|first, second| {
+            first.begin.cmp(&second.begin)
+        })
+        .unwrap();
+
+    min_location.begin
+
+}
+
+fn map_range(range: &Range, map: &Map) -> Vec<Range> {
+    let mut points = map
+        .lines
+        .iter()
+        .map(|line| line.range.begin)
+        .collect::<HashSet<_>>();
+    let last_point = map.lines.last().unwrap();
+    points.insert(last_point.range.end);
+    points.insert(range.begin);
+    points.insert(range.end);
+
+    let mut valid_points = points
+        .iter()
+        .filter(|p| *p >= &range.begin && *p <= &range.end)
+        .collect::<Vec<_>>();
+    if valid_points.is_empty() {
+        return vec![*range];
+    }
+    valid_points.sort();
+    let ranges = valid_points
+        .windows(2)
+        .map(|r| Range {
+            begin: *r[0],
+            end: *r[1],
+        })
+        .collect::<Vec<_>>();
+    let mut sub_ranges = vec![];
+    let mut already_mapped = vec![];
+    for line in map.lines.iter() {
+        for (i, range) in ranges.iter().enumerate() {
+            if range.begin >= line.range.begin && range.end <= line.range.end {
+                sub_ranges.push(Range {
+                    begin: line.destination + range.begin - line.range.begin,
+                    end: line.destination + range.end - line.range.begin,
+                });
+                already_mapped.push(i);
+            } 
+        }
+    }
+    
+    ranges.iter().enumerate().filter(|(i, _)| {
+        !already_mapped.contains(i)
+    }).for_each(|(_, r)| {
+        sub_ranges.push(*r);
+    });
+
+    sub_ranges
+}
+
+fn parse_seeds_part_2(contents: &str) -> Vec<Range> {
+    parse_input(contents)
+        .chunks(2)
+        .map(|v| Range {
+            begin: v[0],
+            end: v[0] + v[1],
+        })
+        .collect::<Vec<_>>()
+}
+
+fn parse_input(contents: &str) -> Vec<u64> {
     contents
         .split("\n\n")
         .nth(0)
@@ -73,28 +190,7 @@ fn parse_seeds_part_1(contents: &str) -> Vec<u64> {
         .collect::<Vec<u64>>()
 }
 
-fn jump_forward(key: u64, map: &Vec<Vec<u64>>) -> u64 {
-    for entry in map {
-        if key >= entry[1] && key - entry[1] < entry[2] {
-            return entry[0] + key - entry[1];
-        }
-    }
-
-    key
-}
-
-fn calc_part_2(contents: &str) -> u64 {
-    0
-}
-
-fn parse_seeds_part_2(contents: &str) -> Vec<(u64, u64)> {
-    parse_seeds_part_1(contents)
-        .chunks(2)
-        .map(|v| (v[0], v[0] + v[1]))
-        .collect::<Vec<_>>()
-}
-
-fn parse_map(contents: &str, position: usize) -> Vec<Vec<u64>> {
+fn parse_lines(contents: &str, position: usize) -> Vec<Line> {
     contents
         .split("\n\n")
         .nth(position)
@@ -104,10 +200,18 @@ fn parse_map(contents: &str, position: usize) -> Vec<Vec<u64>> {
         .unwrap()
         .lines()
         .map(|line| {
-            line.split(" ")
+            let parsed_line = line
+                .split(" ")
                 .filter(|n| !n.is_empty())
                 .map(|n| n.parse::<u64>().unwrap())
-                .collect::<Vec<u64>>()
+                .collect::<Vec<u64>>();
+            Line {
+                destination: parsed_line[0],
+                range: Range {
+                    begin: parsed_line[1],
+                    end: parsed_line[1] + parsed_line[2],
+                },
+            }
         })
         .collect::<Vec<_>>()
 }
