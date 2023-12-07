@@ -59,43 +59,22 @@ fn run(file_path: &str) -> Result<(u64, u64), Box<dyn Error>> {
 }
 
 fn calc_part_1(contents: &str) -> u64 {
-    calc(&contents, compare_hands_part_1)
-}
-
-fn compare_hands_part_1(first: &Hand, second: &Hand) -> Ordering {
-    let first_hand = match_hand_part_1(first);
-    let second_hand = match_hand_part_1(second);
-
-    if first_hand == second_hand {
-        let cards = HashMap::from([
-            ('2', 0),
-            ('3', 1),
-            ('4', 2),
-            ('5', 3),
-            ('6', 4),
-            ('7', 5),
-            ('8', 6),
-            ('9', 7),
-            ('T', 8),
-            ('J', 9),
-            ('Q', 10),
-            ('K', 11),
-            ('A', 12),
-        ]);
-        for item in zip(first.card.chars(), second.card.chars()) {
-            if item.0 != item.1 {
-                if cards[&item.0] < cards[&item.1] {
-                    return Ordering::Less;
-                } else if cards[&item.0] > cards[&item.1] {
-                    return Ordering::Greater;
-                }
-
-                // assume no equal here
-            }
-        }
-    }
-
-    first_hand.cmp(&second_hand)
+    let cards = HashMap::from([
+        ('2', 0),
+        ('3', 1),
+        ('4', 2),
+        ('5', 3),
+        ('6', 4),
+        ('7', 5),
+        ('8', 6),
+        ('9', 7),
+        ('T', 8),
+        ('J', 9),
+        ('Q', 10),
+        ('K', 11),
+        ('A', 12),
+    ]);
+    calc(&contents, compare_hands, match_hand_part_1, &cards)
 }
 
 fn match_hand_part_1(hand: &Hand) -> Kind {
@@ -123,12 +102,37 @@ fn match_hand_part_1(hand: &Hand) -> Kind {
 }
 
 fn calc_part_2(contents: &str) -> u64 {
-    calc(&contents, compare_hands_part_2)
+    let cards = HashMap::from([
+        ('J', 0),
+        ('2', 1),
+        ('3', 2),
+        ('4', 3),
+        ('5', 4),
+        ('6', 5),
+        ('7', 6),
+        ('8', 7),
+        ('9', 8),
+        ('T', 9),
+        ('Q', 10),
+        ('K', 11),
+        ('A', 12),
+    ]);
+    calc(&contents, compare_hands,  match_hand_part_2, &cards)
 }
 
-fn calc(contents: &str, compare_func: fn(first: &Hand, second: &Hand) -> Ordering) -> u64 {
+fn calc(
+    contents: &str,
+    compare_func: fn(
+        first: &Hand,
+        second: &Hand,
+        cards: &HashMap<char, u64>,
+        match_hand_func: fn(hand: &Hand) -> Kind,
+    ) -> Ordering,
+    match_hand_func: fn(hand: &Hand) -> Kind,
+    cards: &HashMap<char, u64>,
+) -> u64 {
     let mut hands = parse_input(&contents);
-    hands.sort_by(|first, second| compare_func(first, second));
+    hands.sort_by(|first, second| compare_func(first, second, cards, match_hand_func));
 
     hands
         .iter()
@@ -137,26 +141,16 @@ fn calc(contents: &str, compare_func: fn(first: &Hand, second: &Hand) -> Orderin
         .sum()
 }
 
-fn compare_hands_part_2(first: &Hand, second: &Hand) -> Ordering {
-    let first_hand = match_hand_part_2(first);
-    let second_hand = match_hand_part_2(second);
+fn compare_hands(
+    first: &Hand,
+    second: &Hand,
+    cards: &HashMap<char, u64>,
+    match_hand_func: fn(hand: &Hand) -> Kind,
+) -> Ordering {
+    let first_hand = match_hand_func(first);
+    let second_hand = match_hand_func(second);
 
     if first_hand == second_hand {
-        let cards = HashMap::from([
-            ('J', 0),
-            ('2', 1),
-            ('3', 2),
-            ('4', 3),
-            ('5', 4),
-            ('6', 5),
-            ('7', 6),
-            ('8', 7),
-            ('9', 8),
-            ('T', 9),
-            ('Q', 10),
-            ('K', 11),
-            ('A', 12),
-        ]);
         for item in zip(first.card.chars(), second.card.chars()) {
             if item.0 != item.1 {
                 if cards[&item.0] < cards[&item.1] {
@@ -164,12 +158,10 @@ fn compare_hands_part_2(first: &Hand, second: &Hand) -> Ordering {
                 } else if cards[&item.0] > cards[&item.1] {
                     return Ordering::Greater;
                 }
-
                 // assume no equal here
             }
         }
     }
-
     first_hand.cmp(&second_hand)
 }
 
